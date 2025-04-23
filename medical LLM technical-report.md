@@ -2,236 +2,167 @@
 
 ## Abstract
 
-This report details the development of a specialized medical question-answering system through fine-tuning of a pre-trained language model. Using Google's Flan-T5-base as the foundation, we fine-tuned the model on a curated dataset of medical questions and answers to create a system capable of providing accurate, concise responses to common medical queries. Our approach demonstrates how even a relatively small but high-quality dataset can effectively adapt a general-purpose language model to a specialized domain. We present our methodology, results, challenges encountered, and directions for future improvement.
+This report documents the implementation of a medical question-answering system developed through fine-tuning of Google's Flan-T5-base model. The system was trained on a small but focused dataset of 13 medical question-answer pairs covering common medical topics. Despite the limited dataset size, the fine-tuned model demonstrates an ability to generate coherent, relevant responses to medical queries. This work illustrates how even modest fine-tuning efforts can adapt large language models to specialized domains, providing a foundation for more sophisticated medical AI systems with additional data and resources.
 
 ## 1. Introduction
 
-Large Language Models (LLMs) have demonstrated impressive capabilities in general knowledge question answering, but often lack precision in specialized domains like medicine. Medical information requires accuracy, reliability, and nuance that general-purpose models may not provide without domain adaptation. This project explores how fine-tuning can bridge this gap, creating a model that combines the broad capabilities of LLMs with domain-specific medical knowledge.
+Large Language Models (LLMs) have demonstrated remarkable general knowledge capabilities but often lack the specialized knowledge required for domain-specific applications such as medical question answering. This project explores how targeted fine-tuning can help adapt a general-purpose LLM to the medical domain, potentially creating a more reliable source of medical information.
 
-Our approach uses instruction-tuning, a specific fine-tuning methodology where models are trained on examples formatted as instructions paired with desired outputs. This method has been shown to be particularly effective for specialized applications, allowing models to better understand the specific patterns and terminology of a domain while maintaining their general capabilities.
+Medical information requires precision and accuracy, making it an interesting challenge for language model adaptation. Through fine-tuning on a small set of carefully crafted examples, we aim to improve the model's ability to provide concise, relevant answers to common medical questions.
 
 ## 2. Methodology
 
 ### 2.1 Dataset Preparation
 
-Our dataset consists of 13 carefully curated medical question-answer pairs covering a range of common medical topics. While small in size, the dataset was designed to be high-quality and representative of typical medical queries, with a focus on:
+The dataset consists of 13 medical question-answer pairs, covering a range of common medical topics including:
 
-- Common chronic conditions (diabetes, hypertension, etc.)
-- Diagnostic information
-- Treatment options
-- Emergency symptoms
+- Chronic conditions (diabetes, hypertension, Alzheimer's)
+- Diagnostic procedures (hypertension diagnosis, strep throat diagnosis)
+- Medications and treatments (asthma medications, statins)
+- Disease comparisons (Alzheimer's vs. dementia, rheumatoid vs. osteoarthritis)
+- Emergency conditions (stroke warning signs, heart attack symptoms)
 
-Each example follows a consistent instruction/output format:
+Each example follows a consistent instruction-output format:
 
 ```
-Instruction: "What are the symptoms of type 2 diabetes?"
-Output: "The main symptoms of type 2 diabetes include increased thirst, frequent urination, excessive hunger, fatigue, blurred vision, slow-healing sores, and recurring infections."
+instruction: "What are the symptoms of type 2 diabetes?"
+output: "The main symptoms of type 2 diabetes include increased thirst, frequent urination, excessive hunger, fatigue, blurred vision, slow-healing sores, and recurring infections."
 ```
 
-Though the dataset size is limited compared to industrial applications, it provides a focused testbed for exploring the effectiveness of fine-tuning in the medical domain. The small size also reflects realistic constraints often encountered in specialized domains where expert-labeled data may be scarce.
+The dataset was intentionally kept small but high-quality, with carefully crafted answers that provide concise, accurate medical information. The initial set of 10 examples was supplemented with 3 additional examples to expand coverage of medical topics.
 
 ### 2.2 Model Selection
 
-We selected Google's Flan-T5-base model for fine-tuning based on several considerations:
+Google's Flan-T5-base model was selected as the foundation for fine-tuning based on several factors:
 
-1. **Architecture**: The encoder-decoder architecture of T5 is well-suited for question-answering tasks, allowing the model to generate free-form responses rather than just classifications.
+1. **Prior Instruction Tuning**: Flan-T5 has already been exposed to instruction-following tasks, making it well-suited for a question-answering application.
 
-2. **Size and Efficiency**: At approximately 250M parameters, Flan-T5-base offers a good balance between performance and computational efficiency, making it practical for fine-tuning and deployment.
+2. **Size and Efficiency**: The "base" variant (approximately 250 million parameters) offers a good balance between capability and computational efficiency, allowing for effective fine-tuning without excessive resource requirements.
 
-3. **Instruction Tuning**: Flan-T5 has already undergone instruction tuning on a diverse set of tasks, making it more receptive to our instruction-based fine-tuning approach.
+3. **Architecture**: The encoder-decoder architecture of T5 is well-suited for text generation tasks like question answering.
 
-4. **Transfer Learning Potential**: The model's strong zero-shot and few-shot capabilities suggested good potential for transfer learning to our medical domain.
+4. **Performance**: Flan-T5-base has demonstrated strong performance on a range of natural language tasks, suggesting good transfer learning potential.
 
 ### 2.3 Fine-Tuning Implementation
 
-The fine-tuning process consisted of several key steps:
+The fine-tuning process implemented in our code follows these steps:
 
-**Preprocessing**: 
-- Each question was prefixed with "Medical question: " to provide consistent context
-- Inputs and outputs were tokenized with a maximum sequence length of 128 tokens
-- Padding and truncation were applied for consistent tensor shapes
-- Padding tokens in labels were replaced with -100 to be ignored during loss calculation
+**Preprocessing**:
+- Each question is prefixed with "Medical question: " to provide consistent context
+- Both inputs and outputs are tokenized with a maximum sequence length of 128 tokens
+- Padding and truncation are applied for consistent tensor dimensions
+- Padding tokens in the labels are replaced with -100 so they're ignored in loss calculation
 
 **Training Configuration**:
-- We used the Hugging Face Transformers library and PyTorch for implementation
-- A sequence-to-sequence approach with appropriate data collation for encoder-decoder models
-- Checkpoints were saved at the end of each epoch, with a limit of 2 saved checkpoints
-- Training was conducted for 10 epochs
+- Batch size: 4 (with gradient accumulation steps of 2 for an effective batch size of 8)
+- Learning rate: 1e-4
+- Weight decay: 0.01
+- Training epochs: 10
+- FP16 precision: Disabled for stability
 
-### 2.4 Hyperparameter Selection
-
-We experimented with three hyperparameter configurations to identify the optimal setup:
-
-| Configuration | Learning Rate | Batch Size | Weight Decay | Epochs |
-|---------------|--------------|------------|--------------|--------|
-| Config 1      | 1e-4         | 4          | 0.01         | 10     |
-| Config 2      | 5e-5         | 8          | 0.05         | 15     |
-| Config 3      | 2e-4         | 2          | 0.001        | 8      |
-
-Config 1 was selected as our final configuration based on initial experiments showing better performance. With small datasets, lower learning rates often help prevent overfitting, while the moderate weight decay provides regularization. The extended training period of 10 epochs was chosen to compensate for the small dataset size.
+The code implements this configuration using the Hugging Face Transformers library's Trainer API, which handles the training loop, optimization, and checkpointing.
 
 ## 3. Evaluation
 
-### 3.1 Methodology
+The evaluation in our implementation is primarily qualitative, testing the model on both seen and unseen medical questions to assess response quality.
 
-We evaluated the model's performance using both quantitative metrics and qualitative assessment:
+### 3.1 Testing Methodology
 
-**Quantitative Evaluation**:
-- ROUGE-L score: Measuring the longest common subsequence between generated and reference answers
-- BLEU score: Assessing n-gram precision of generated responses
-- Exact Match Rate: Percentage of cases where model output perfectly matched the reference
+The evaluation approach in our code consists of:
 
-**Qualitative Evaluation**:
-- Medical accuracy assessment
-- Relevance of information provided
-- Conciseness and clarity of responses
+1. **Testing on training examples**: Verifying the model's ability to reproduce learned information.
+2. **Testing on variations**: Checking if the model can handle slight rephrasing of trained questions.
+3. **Manual review**: Assessing the correctness, relevance, and clarity of generated responses.
+
+The code implements a simple test function that takes a medical question as input and generates a response using the fine-tuned model.
 
 ### 3.2 Results
 
-**Quantitative Results**:
+The fine-tuned model shows promising results in generating relevant, concise answers to medical questions. When tested on the training examples, the model produces responses that closely match the expected outputs, indicating successful learning of the provided information.
 
-| Metric | Pre-fine-tuned Model | Fine-tuned Model | Improvement |
-|--------|----------------------|------------------|-------------|
-| ROUGE-L | 0.452               | 0.783            | +73.2%      |
-| BLEU    | 0.331               | 0.689            | +108.2%     |
-| Exact Match | 0.0%            | 38.5%            | +38.5%      |
+For example, when asked "What are the symptoms of type 2 diabetes?", the model correctly lists the key symptoms including increased thirst, frequent urination, fatigue, and blurred vision.
 
-The fine-tuned model showed substantial improvement across all metrics, with particularly strong gains in BLEU score and the achievement of exact matches on some queries, which the baseline model could not produce.
+The model also demonstrates some ability to handle variations of the training questions, suggesting limited generalization capability despite the small dataset size.
 
-**Qualitative Results**:
+Due to the limited dataset size and domain scope, the model's knowledge is naturally constrained to the topics covered in the training data. Questions outside this scope may receive less accurate or complete responses.
 
-The fine-tuned model demonstrated several key improvements:
+## 4. Inference Pipeline
 
-1. **Medical Terminology**: More accurate use of medical terms and concepts
-2. **Response Relevance**: Answers more directly addressed the specific questions asked
-3. **Conciseness**: Responses were appropriately concise while including key information
-4. **Structure**: Responses followed logical structures appropriate to the question type
+A key component of our implementation is the inference pipeline, which provides a simple interface for interacting with the fine-tuned model.
 
-Example comparison:
+### 4.1 Pipeline Implementation
 
-**Question**: "What are the early signs of heart attack?"
-
-**Baseline Model Response**: 
-"Heart attacks can cause chest pain, shortness of breath, and other symptoms. You should go to the hospital if you experience these."
-
-**Fine-tuned Model Response**:
-"Early signs of heart attack include chest pain or discomfort, shortness of breath, pain radiating to the arm, jaw or back, nausea, cold sweat, and unusual fatigue, especially in women."
-
-The fine-tuned model provides more specific, comprehensive information with proper medical context.
-
-## 4. Error Analysis
-
-Despite the overall improvements, our analysis identified several error patterns and limitations:
-
-### 4.1 Common Error Patterns
-
-1. **Hallucination on Complex Queries**: 
-   When presented with questions beyond the scope of the training data, the model occasionally generated plausible-sounding but incorrect information. For example, when asked about specific dosing recommendations, the model would provide specific numbers that were not medically accurate.
-
-2. **Limited Detail Depth**: 
-   On topics requiring extensive explanation, the model provided correct but sometimes oversimplified information. This reflects the constraints of both our training data detail level and the model's context window.
-
-3. **Confidence Presentation**: 
-   Unlike ideal medical communication, the model did not express appropriate uncertainty when information might be incomplete or when multiple valid approaches exist.
-
-### 4.2 Performance Analysis by Question Type
-
-| Question Type | Strong Performance | Weak Performance |
-|---------------|-------------------|------------------|
-| Symptom Description | ✓ | |
-| Condition Definition | ✓ | |
-| Diagnostic Process | ✓ | |
-| Treatment Options | | ✓ |
-| Medication Details | | ✓ |
-| Emergency Response | ✓ | |
-
-The model performed best on descriptive questions about well-defined conditions and symptoms, while struggling more with questions requiring nuanced understanding of treatments or medications where context and individual factors are typically important.
-
-## 5. Inference Pipeline
-
-We developed a streamlined inference pipeline to make the fine-tuned model accessible for testing and demonstration:
+The inference pipeline implemented in our code includes:
 
 ```python
 def generate_answer(question):
     input_text = f"Medical question: {question}"
     inputs = tokenizer(input_text, return_tensors="pt", padding=True, 
-                      truncation=True, max_length=128)
-    
-    # Move to appropriate device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    inputs = {k: v.to(device) for k, v in inputs.items()}
-    model.to(device)
-    
-    # Generate answer with carefully tuned parameters
+                      truncation=True, max_length=max_source_length)
+
+    # Move to GPU if available
+    if torch.cuda.is_available():
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+        model.to("cuda")
+
+    # Generate answer
     outputs = model.generate(
         input_ids=inputs["input_ids"],
         attention_mask=inputs["attention_mask"],
-        max_length=128,
+        max_length=max_target_length,
         do_sample=True,
-        temperature=0.3,  # Lower temperature for focused outputs
+        temperature=0.3,
         num_beams=4,
-        no_repeat_ngram_size=3  # Prevent repetition
+        no_repeat_ngram_size=3
     )
-    
+
     # Decode and return the answer
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 ```
 
-This pipeline includes several optimizations:
+The pipeline includes careful configuration of generation parameters to produce high-quality responses:
 
-1. **Generation Parameters**: 
-   - Lower temperature (0.3) to reduce randomness and improve focus
-   - Beam search with 4 beams to explore multiple generation paths
-   - N-gram repetition prevention to avoid redundancy
+- Temperature of 0.3 to reduce randomness
+- Beam search with 4 beams to explore multiple generation paths
+- N-gram repetition prevention to avoid redundant text
 
-2. **Consistent Formatting**: 
-   - Maintaining the same input format used during training
-   - Proper handling of device placement for GPU acceleration when available
+The code also includes a standalone script `medical_qa_inference.py` that provides an interactive command-line interface for querying the model.
 
-3. **Interactive Interface**: 
-   - Simple command-line interface for easy testing
-   - Clear input/output patterns for user interaction
+## 5. Limitations and Future Improvements
 
-## 6. Limitations and Future Improvements
+Our implementation has several limitations that suggest directions for future work:
 
-### 6.1 Current Limitations
+### 5.1 Current Limitations
 
-1. **Data Scarcity**: 
-   The small dataset size (13 examples) limits the model's coverage of medical topics and its ability to generalize to novel questions.
+1. **Limited Dataset Size**: With only 13 examples, the model's medical knowledge is extremely limited in scope.
 
-2. **Evaluation Scope**: 
-   Our evaluation, while multifaceted, was conducted on a limited test set that partially overlapped with the training data due to dataset size constraints.
+2. **Lack of Formal Evaluation**: The current implementation doesn't include quantitative metrics to formally assess performance.
 
-3. **Medical Verification**: 
-   The model outputs have not been verified by medical professionals, which would be necessary for any real-world application.
+3. **Single Hyperparameter Configuration**: The code implements only one set of hyperparameters without optimization or comparison.
 
-4. **Ethical Considerations**:
-   The model lacks appropriate disclaimers and uncertainty quantification necessary for responsible deployment in a medical context.
+4. **No Uncertainty Expression**: The model doesn't express uncertainty when asked questions outside its knowledge scope.
 
-### 6.2 Future Improvements
+### 5.2 Future Improvements
 
-1. **Dataset Expansion**: 
-   Expanding the training dataset to hundreds or thousands of examples would significantly improve coverage and performance. Possible sources include medical Q&A forums (with expert verification), medical education materials, and collaboration with healthcare providers.
+Based on these limitations, several improvements could enhance the system:
 
-2. **Model Scaling**: 
-   Experimenting with larger models like Flan-T5-large or Flan-T5-xl could improve performance, particularly on complex medical topics requiring deeper context understanding.
+1. **Dataset Expansion**: Increasing the dataset to hundreds or thousands of examples would significantly improve coverage and performance.
 
-3. **Retrieval Augmentation**: 
-   Implementing a retrieval-augmented generation approach would allow the model to access verified medical information beyond its training data, reducing hallucination and improving accuracy.
+2. **Formal Evaluation Framework**: Adding quantitative metrics like BLEU, ROUGE, and exact match would enable objective assessment.
 
-4. **Uncertainty Quantification**: 
-   Adding mechanisms for the model to express its confidence level and to cite sources would be crucial for responsible deployment in medical contexts.
+3. **Hyperparameter Optimization**: Implementing a systematic search across learning rates, batch sizes, and training durations could improve performance.
 
-5. **Expert Evaluation**: 
-   Establishing a rigorous evaluation process involving medical professionals would provide better assessment of the model's actual utility and safety.
+4. **Medical Verification**: Establishing a process for medical experts to verify responses would be essential for any practical application.
 
-## 7. Conclusion
+5. **Uncertainty Quantification**: Adding mechanisms for the model to express confidence levels would improve trustworthiness.
 
-This project demonstrates that even with a small but carefully curated dataset, fine-tuning can substantially improve a language model's performance in a specialized domain like medicine. The fine-tuned Flan-T5-base model showed significant improvements in medical question answering across multiple metrics, with particularly strong gains in response relevance and accuracy of medical terminology.
+## 6. Conclusion
 
-However, our error analysis reveals important limitations, particularly around hallucination on complex queries and the handling of topics requiring nuanced understanding. These limitations highlight the challenges in developing trustworthy AI systems for sensitive domains like healthcare.
+This project demonstrates a basic implementation of fine-tuning a language model for medical question answering. Despite using a minimal dataset of just 13 examples, the fine-tuned Flan-T5-base model shows an ability to generate relevant, coherent responses to medical questions within its training scope.
 
-The inference pipeline we developed provides a foundation for further development, while our identified future improvements offer a roadmap toward more robust and responsible medical AI systems. This work represents a small but meaningful step toward bridging the gap between general-purpose language models and specialized medical knowledge systems.
+The implementation includes a complete pipeline from data preparation through fine-tuning to inference, providing a foundation for more sophisticated medical AI systems. While the current system has significant limitations due to data constraints and the absence of formal evaluation, it illustrates the potential of targeted fine-tuning for domain adaptation of large language models.
+
+The code structure and implementation details conform to best practices in the field, utilizing the Transformers library for efficient implementation of model training and inference. With the additional improvements outlined in this report, this basic system could evolve into a more robust and comprehensive medical question-answering tool.
 
 ## References
 
@@ -242,7 +173,3 @@ The inference pipeline we developed provides a foundation for further developmen
 3. Raffel, C., et al. (2020). Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer. Journal of Machine Learning Research, 21(140), 1-67.
 
 4. Wolf, T., et al. (2020). Transformers: State-of-the-art Natural Language Processing. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing: System Demonstrations, 38–45.
-
-5. Lin, C. Y. (2004). ROUGE: A Package for Automatic Evaluation of Summaries. In Text Summarization Branches Out, 74–81.
-
-6. Papineni, K., et al. (2002). BLEU: a Method for Automatic Evaluation of Machine Translation. In Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics, 311–318.
