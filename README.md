@@ -3,6 +3,8 @@
 ## Project Overview
 This project implements a fine-tuned language model for medical question answering. It takes a pre-trained Flan-T5-base model and fine-tunes it on a curated dataset of medical questions and answers to create a specialized model for answering medical queries.
 
+##Presentation demo link - https://northeastern-my.sharepoint.com/:v:/r/personal/kurlekar_a_northeastern_edu/Documents/Medical%20LLM%20fine%20tuning.mp4?csf=1&web=1&e=QfThzL&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D
+
 ## Table of Contents
 1. [Installation Requirements](#installation-requirements)
 2. [Dataset](#dataset)
